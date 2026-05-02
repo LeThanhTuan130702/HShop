@@ -34,4 +34,8 @@
     <Content Remove="Localization\BookStore\*.json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Product\" />
+  </ItemGroup>
+
 </Project>

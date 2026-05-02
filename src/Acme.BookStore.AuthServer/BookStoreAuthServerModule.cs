@@ -114,6 +114,7 @@ public class BookStoreAuthServerModule : AbpModule
         ConfigureUrls(configuration);
         ConfigureBundles();
         ConfigureConventionalControllers();
+        
         //ConfigureHealthChecks(context);
         //ConfigureSwagger(context, configuration);
         ConfigureVirtualFileSystem(context);
@@ -128,6 +129,7 @@ public class BookStoreAuthServerModule : AbpModule
             options.IsDynamicClaimsEnabled = true;
         });
     }
+    
 
     private void ConfigureUrls(IConfiguration configuration)
     {

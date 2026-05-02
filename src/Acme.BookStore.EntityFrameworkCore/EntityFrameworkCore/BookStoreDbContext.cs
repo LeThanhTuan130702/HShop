@@ -1,18 +1,22 @@
+using Acme.BookStore.Attributes;
+using Acme.BookStore.Inventories;
+using Acme.BookStore.Manufactures;
+using Acme.BookStore.Orders;
+using Acme.BookStore.Products;
+using Acme.BookStore.Promotions;
 using Microsoft.EntityFrameworkCore;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
-using Acme.BookStore.Books;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
 using Volo.Abp.BlobStoring.Database.EntityFrameworkCore;
 using Volo.Abp.Data;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.EntityFrameworkCore;
-using Volo.Abp.EntityFrameworkCore.Modeling;
 using Volo.Abp.FeatureManagement.EntityFrameworkCore;
 using Volo.Abp.Identity;
 using Volo.Abp.Identity.EntityFrameworkCore;
+using Volo.Abp.OpenIddict.EntityFrameworkCore;
 using Volo.Abp.PermissionManagement.EntityFrameworkCore;
 using Volo.Abp.SettingManagement.EntityFrameworkCore;
-using Volo.Abp.OpenIddict.EntityFrameworkCore;
 using Volo.Abp.TenantManagement;
 using Volo.Abp.TenantManagement.EntityFrameworkCore;
 
@@ -28,7 +32,42 @@ public class BookStoreDbContext :
 {
     /* Add DbSet properties for your Aggregate Roots / Entities here. */
 
-    public DbSet<Book> Books { get; set; }
+    // Product
+    public DbSet<Product> Products { get; set; }
+    public DbSet<ProductLink> ProductLinks { get; set; }
+    public DbSet<ProductTag> ProductTags { get; set; }
+    public DbSet<Tag> Tags { get; set; }
+    public DbSet<Review> Reviews { get; set; }
+    public DbSet<ProductCategories.ProductCategories> ProductCategories { get; set; }
+
+    // Attribute
+    public DbSet<Attribute> Attributes { get; set; }
+    // Product Attributes (EAV)
+    public DbSet<ProductAttributeVarchar> ProductAttributeVarchars { get; set; }
+    public DbSet<ProductAttributeText> ProductAttributeTexts { get; set; }
+    public DbSet<ProductAttributeInt> ProductAttributeInts { get; set; }
+    public DbSet<ProductAttributeDecimal> ProductAttributeDecimals { get; set; }
+    public DbSet<ProductAttributeDatetime> ProductAttributeDatetimes { get; set; }
+
+    // Manufacturer
+    public DbSet<Manufacturer> Manufacturers { get; set; }
+
+    // Order
+    public DbSet<Order> Orders { get; set; }
+    public DbSet<OrderDetail> OrderDetails { get; set; }
+    public DbSet<OrderTransaction> OrderTransactions { get; set; }
+
+    // Inventory
+    public DbSet<Inventory> Inventories { get; set; }
+    public DbSet<InventoryTicket> InventoryTickets { get; set; }
+    public DbSet<InventoryTicketDetail> InventoryTicketDetails { get; set; }
+
+    // Promotion
+    public DbSet<Promotion> Promotions { get; set; }
+    public DbSet<PromotionCategory> PromotionCategories { get; set; }
+    public DbSet<PromotionManufacturer> PromotionManufacturers { get; set; }
+    public DbSet<PromotionProduct> PromotionProducts { get; set; }
+    public DbSet<PromotionUsageHistory> PromotionUsageHistories { get; set; }
 
     #region Entities from the modules
 
@@ -80,22 +119,12 @@ public class BookStoreDbContext :
         builder.ConfigureOpenIddict();
         builder.ConfigureTenantManagement();
         builder.ConfigureBlobStoring();
-        
-        builder.Entity<Book>(b =>
-        {
-            b.ToTable(BookStoreConsts.DbTablePrefix + "Books",
-                BookStoreConsts.DbSchema);
-            b.ConfigureByConvention(); //auto configure for the base class props
-            b.Property(x => x.Name).IsRequired().HasMaxLength(128);
-        });
-        
+        builder.Ignore<ExtraPropertyDictionary>();
+
         /* Configure your own tables/entities inside here */
 
-        //builder.Entity<YourEntity>(b =>
-        //{
-        //    b.ToTable(BookStoreConsts.DbTablePrefix + "YourEntities", BookStoreConsts.DbSchema);
-        //    b.ConfigureByConvention(); //auto configure for the base class props
-        //    //...
-        //});
+        // Auto-apply all IEntityTypeConfiguration classes from the Configurations folder
+        builder.ApplyConfigurationsFromAssembly(typeof(BookStoreDbContext).Assembly);
     }
 }
+
