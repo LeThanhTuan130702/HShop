@@ -7,6 +7,7 @@ using Acme.BookStore.Data;
 using Serilog;
 using Volo.Abp;
 using Volo.Abp.Data;
+using Acme.BookStore.EntityFrameworkCore.Seeding;
 
 namespace Acme.BookStore.DbMigrator;
 
@@ -37,6 +38,11 @@ public class DbMigratorHostedService : IHostedService
                 .ServiceProvider
                 .GetRequiredService<BookStoreDbMigrationService>()
                 .MigrateAsync();
+
+            await application
+                .ServiceProvider
+                .GetRequiredService<IdentityDataSeeder>()
+                .SeedAsync("admin@hshop.com", "Abc123@");    
 
             await application.ShutdownAsync();
 

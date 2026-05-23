@@ -126,12 +126,14 @@
                 "inject": false,
                 "bundleName": "abp-bundle.rtl"
               },
+              
               {
                 "input": "node_modules/bootstrap-icons/font/bootstrap-icons.css",
                 "inject": true,
                 "bundleName": "bootstrap-icons"
               },
-              "src/styles.scss"
+              "src/styles.scss",
+              "src/tailwind.css"
             ],
             "scripts": [],
             "browser": "src/main.ts"
@@ -194,7 +196,7 @@
             "karmaConfig": "karma.conf.js",
             "inlineStyleLanguage": "scss",
             "assets": ["src/favicon.ico", "src/assets"],
-            "styles": ["src/styles.scss"],
+            "styles": ["src/styles.scss, src/tailwind.css"],
             "scripts": []
           }
         },

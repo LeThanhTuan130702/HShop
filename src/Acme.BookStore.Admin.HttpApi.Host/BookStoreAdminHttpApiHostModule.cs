@@ -1,47 +1,37 @@
-using Acme.BookStore.EntityFrameworkCore;
+using System;
+using System.IO;
+using System.Linq;
 using Acme.BookStore.Admin.HealthChecks;
+using Acme.BookStore.EntityFrameworkCore;
 using Acme.BookStore.MultiTenancy;
-using Microsoft.AspNetCore.Authentication;
+using Medallion.Threading;
+using Medallion.Threading.Redis;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
-using OpenIddict.Server.AspNetCore;
-using OpenIddict.Validation.AspNetCore;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Security.Cryptography.X509Certificates;
+using StackExchange.Redis;
 using Volo.Abp;
-using Volo.Abp.Account;
-using Volo.Abp.Account.Web;
 using Volo.Abp.AspNetCore.Authentication.JwtBearer;
 using Volo.Abp.AspNetCore.MultiTenancy;
 using Volo.Abp.AspNetCore.Mvc;
-using Volo.Abp.AspNetCore.Mvc.UI.Bundling;
+using Volo.Abp.AspNetCore.Mvc.Libs;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite;
-using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite.Bundling;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.Shared;
 using Volo.Abp.AspNetCore.Serilog;
 using Volo.Abp.Autofac;
-using Volo.Abp.Identity;
-using Volo.Abp.Localization;
+using Volo.Abp.Caching;
+using Volo.Abp.Caching.StackExchangeRedis;
 using Volo.Abp.Modularity;
-using Volo.Abp.OpenIddict;
-using Volo.Abp.Security.Claims;
-using Volo.Abp.Studio;
 using Volo.Abp.Studio.Client.AspNetCore;
 using Volo.Abp.Swashbuckle;
-using Volo.Abp.UI.Navigation.Urls;
 using Volo.Abp.VirtualFileSystem;
-using Volo.Abp.Caching;
 
 namespace Acme.BookStore.Admin;
 
@@ -49,6 +39,7 @@ namespace Acme.BookStore.Admin;
     typeof(BookStoreAdminHttpApiModule),
     typeof(AbpStudioClientAspNetCoreModule),
     typeof(AbpAspNetCoreMvcUiLeptonXLiteThemeModule),
+    typeof(AbpCachingStackExchangeRedisModule),
     typeof(AbpAutofacModule),
     typeof(AbpAspNetCoreMultiTenancyModule),
     typeof(BookStoreAdminApplicationModule),
@@ -94,34 +85,19 @@ public class BookStoreAdminHttpApiHostModule : AbpModule
         var configuration = context.Services.GetConfiguration();
         var hostingEnvironment = context.Services.GetHostingEnvironment();
 
-        if (!configuration.GetValue<bool>("App:DisablePII"))
-        {
-            Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
-            Microsoft.IdentityModel.Logging.IdentityModelEventSource.LogCompleteSecurityArtifact = true;
-        }
-
-        if (!configuration.GetValue<bool>("AuthServer:RequireHttpsMetadata"))
-        {
-            Configure<OpenIddictServerAspNetCoreOptions>(options =>
-            {
-                options.DisableTransportSecurityRequirement = true;
-            });
-            
-            Configure<ForwardedHeadersOptions>(options =>
-            {
-                options.ForwardedHeaders = ForwardedHeaders.XForwardedProto;
-            });
-        }
-
-        ConfigureAuthentication(context, configuration);
-        ConfigureUrls(configuration);
-        ConfigureBundles();
         ConfigureConventionalControllers();
+        ConfigureAuthentication(context, configuration);
         ConfigureHealthChecks(context);
         ConfigureSwagger(context, configuration);
         ConfigureVirtualFileSystem(context);
         ConfigureCors(context, configuration);
         ConfigureCache(configuration);
+        ConfigureDataProtection(context, configuration, hostingEnvironment);
+        ConfigureDistributedLocking(context, configuration);
+        Configure<AbpMvcLibsOptions>(options =>
+        {
+            options.CheckLibs = false;
+        });
     }
 
     private void ConfigureCache(IConfiguration configuration)
@@ -146,36 +122,31 @@ public class BookStoreAdminHttpApiHostModule : AbpModule
         context.Services.ForwardIdentityAuthenticationForBearer(JwtBearerDefaults.AuthenticationScheme);
     }
 
-    private void ConfigureUrls(IConfiguration configuration)
+    private void ConfigureDataProtection(
+        ServiceConfigurationContext context,
+        IConfiguration configuration,
+        IWebHostEnvironment hostingEnvironment)
     {
-        Configure<AppUrlOptions>(options =>
+        var dataProtectionBuilder = context.Services.AddDataProtection().SetApplicationName("TeduEcommerce.Admin");
+        if (!hostingEnvironment.IsDevelopment())
         {
-            options.Applications["MVC"].RootUrl = configuration["App:SelfUrl"];
-            options.Applications["Angular"].RootUrl = configuration["App:AngularUrl"];
-            options.Applications["Angular"].Urls[AccountUrlNames.PasswordReset] = "account/reset-password";
-            options.RedirectAllowedUrls.AddRange(configuration["App:RedirectAllowedUrls"]?.Split(',') ?? Array.Empty<string>());
-        });
+            var redisConfiguration = configuration["Redis:Configuration"]
+                ?? throw new InvalidOperationException("Redis:Configuration is not configured.");
+            var redis = ConnectionMultiplexer.Connect(redisConfiguration);
+            dataProtectionBuilder.PersistKeysToStackExchangeRedis(redis, "TeduEcommerce-Protection-Keys");
+        }
     }
 
-    private void ConfigureBundles()
+    private void ConfigureDistributedLocking(
+    ServiceConfigurationContext context,
+    IConfiguration configuration)
     {
-        Configure<AbpBundlingOptions>(options =>
+        context.Services.AddSingleton<IDistributedLockProvider>(sp =>
         {
-            options.StyleBundles.Configure(
-                LeptonXLiteThemeBundles.Styles.Global,
-                bundle =>
-                {
-                    bundle.AddFiles("/global-styles.css");
-                }
-            );
-
-            options.ScriptBundles.Configure(
-                LeptonXLiteThemeBundles.Scripts.Global,
-                bundle =>
-                {
-                    bundle.AddFiles("/global-scripts.js");
-                }
-            );
+            var redisConfiguration = configuration["Redis:Configuration"]
+                ?? throw new InvalidOperationException("Redis:Configuration is not configured.");
+            var connection = ConnectionMultiplexer.Connect(redisConfiguration);
+            return new RedisDistributedSynchronizationProvider(connection.GetDatabase());
         });
     }
 
@@ -284,11 +255,11 @@ public class BookStoreAdminHttpApiHostModule : AbpModule
         app.UseSwagger();
         app.UseAbpSwaggerUI(options =>
         {
-            options.SwaggerEndpoint("/swagger/v1/swagger.json", "BookStore ADmin API");
+            options.SwaggerEndpoint("/swagger/v1/swagger.json", "BookStore Admin API");
 
             var configuration = context.ServiceProvider.GetRequiredService<IConfiguration>();
             options.OAuthClientId(configuration["AuthServer:SwaggerClientId"]);
-            options.OAuthScopes("BookStore");
+            options.OAuthScopes("BookStore.Admin");
         });
         app.UseAuditing();
         app.UseAbpSerilogEnrichers();

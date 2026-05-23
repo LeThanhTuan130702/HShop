@@ -64,6 +64,13 @@ public class OpenIddictDataSeedContributor : IDataSeedContributor, ITransientDep
                 Name = "BookStore", DisplayName = "BookStore API", Resources = { "BookStore" }
             });
         }
+
+        if (await _openIddictScopeRepository.FindByNameAsync("BookStore.Admin") == null)
+        {
+            await _scopeManager.CreateAsync(new OpenIddictScopeDescriptor {
+                Name = "BookStore.Admin", DisplayName = "BookStore Admin API", Resources = { "BookStore.Admin" }
+            });
+        }
     }
 
     private async Task CreateApplicationsAsync()
@@ -74,45 +81,68 @@ public class OpenIddictDataSeedContributor : IDataSeedContributor, ITransientDep
             OpenIddictConstants.Permissions.Scopes.Phone,
             OpenIddictConstants.Permissions.Scopes.Profile,
             OpenIddictConstants.Permissions.Scopes.Roles,
-            "BookStore"
         };
+
+        var adminScope = new List<string>();
+            adminScope.AddRange(commonScopes);
+            adminScope.Add("BookStore.Admin");
+    
+        var clientScopes = new List<string>();
+            clientScopes.AddRange(commonScopes);
+            clientScopes.Add("BookStore");
 
         var configurationSection = _configuration.GetSection("OpenIddict:Applications");
 
+        //Admin Angular Client
+        var AdminAngularClientId = configurationSection["BookStore_Admin_App:ClientId"];
+        if (!AdminAngularClientId.IsNullOrWhiteSpace())
+        {
+            var AdminAngularClientRootUrl = configurationSection["BookStore_Admin_App:RootUrl"]?.TrimEnd('/');
+            await CreateApplicationAsync(
+                applicationType: OpenIddictConstants.ApplicationTypes.Web,
+                name: AdminAngularClientId!,
+                type: OpenIddictConstants.ClientTypes.Confidential,
+                consentType: OpenIddictConstants.ConsentTypes.Implicit,
+                displayName: "Admin Angular Application",
+                secret: "1q2w3e*",
+                grantTypes: new List<string> {
+                    OpenIddictConstants.GrantTypes.Password,
+                    OpenIddictConstants.GrantTypes.Implicit,
+                    OpenIddictConstants.GrantTypes.RefreshToken,
+                },
+                scopes: adminScope,
+                redirectUris: new List<string> { AdminAngularClientRootUrl },
+                postLogoutRedirectUris: new List<string> { AdminAngularClientRootUrl },
+                clientUri: AdminAngularClientRootUrl,
+                logoUri: "/images/clients/angular.svg"
+            );
+        }
 
         //Console Test / Angular Client
         var consoleAndAngularClientId = configurationSection["BookStore_App:ClientId"];
         if (!consoleAndAngularClientId.IsNullOrWhiteSpace())
         {
-            var consoleAndAngularClientRootUrl = configurationSection["BookStore_App:RootUrl"]?.TrimEnd('/');
+            var consoleAndAngularClientRootUrl = configurationSection["BookStore_App:RootUrl"]?.EnsureEndsWith('/');
             await CreateApplicationAsync(
                 applicationType: OpenIddictConstants.ApplicationTypes.Web,
                 name: consoleAndAngularClientId!,
-                type: OpenIddictConstants.ClientTypes.Public,
+                type: OpenIddictConstants.ClientTypes.Confidential,
                 consentType: OpenIddictConstants.ConsentTypes.Implicit,
                 displayName: "Console Test / Angular Application",
-                secret: null,
+                secret: "1q2w3e*",
                 grantTypes: new List<string> {
                     OpenIddictConstants.GrantTypes.AuthorizationCode,
-                    OpenIddictConstants.GrantTypes.Password,
-                    OpenIddictConstants.GrantTypes.ClientCredentials,
                     OpenIddictConstants.GrantTypes.RefreshToken,
                     "LinkLogin",
                     "Impersonation"
                 },
-                scopes: commonScopes,
-                redirectUris: new List<string> { consoleAndAngularClientRootUrl },
-                postLogoutRedirectUris: new List<string> { consoleAndAngularClientRootUrl },
+                scopes: clientScopes,
+                redirectUris: new List<string>  {$"{consoleAndAngularClientRootUrl}signin-oidc"},
+                postLogoutRedirectUris: new List<string> { $"{consoleAndAngularClientRootUrl}signout-callback-oidc" },
                 clientUri: consoleAndAngularClientRootUrl,
                 logoUri: "/images/clients/angular.svg"
             );
         }
-
-        
-        
-
-
-
 
         // Swagger Client
         var swaggerClientId = configurationSection["BookStore_Swagger:ClientId"];
@@ -123,12 +153,12 @@ public class OpenIddictDataSeedContributor : IDataSeedContributor, ITransientDep
             await CreateApplicationAsync(
                 applicationType: OpenIddictConstants.ApplicationTypes.Web,
                 name: swaggerClientId!,
-                type: OpenIddictConstants.ClientTypes.Public,
+                type: OpenIddictConstants.ClientTypes.Public, 
                 consentType: OpenIddictConstants.ConsentTypes.Implicit,
-                displayName: "Swagger Application",
+                displayName: "Swagger Admin Application",
                 secret: null,
                 grantTypes: new List<string> { OpenIddictConstants.GrantTypes.AuthorizationCode, },
-                scopes: commonScopes,
+                scopes: adminScope,
                 redirectUris: new List<string> { $"{swaggerRootUrl}/swagger/oauth2-redirect.html" },
                 clientUri: swaggerRootUrl.EnsureEndsWith('/') + "swagger",
                 logoUri: "/images/clients/swagger.svg"

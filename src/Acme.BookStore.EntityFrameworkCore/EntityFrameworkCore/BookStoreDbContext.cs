@@ -1,4 +1,5 @@
 using Acme.BookStore.Attributes;
+using Acme.BookStore.Books;
 using Acme.BookStore.Inventories;
 using Acme.BookStore.Manufactures;
 using Acme.BookStore.Orders;
@@ -31,6 +32,7 @@ public class BookStoreDbContext :
     IIdentityDbContext
 {
     /* Add DbSet properties for your Aggregate Roots / Entities here. */
+    public DbSet<Book> Books { get; set; } // test
 
     // Product
     public DbSet<Product> Products { get; set; }
@@ -38,6 +40,7 @@ public class BookStoreDbContext :
     public DbSet<ProductTag> ProductTags { get; set; }
     public DbSet<Tag> Tags { get; set; }
     public DbSet<Review> Reviews { get; set; }
+    
     public DbSet<ProductCategories.ProductCategories> ProductCategories { get; set; }
 
     // Attribute

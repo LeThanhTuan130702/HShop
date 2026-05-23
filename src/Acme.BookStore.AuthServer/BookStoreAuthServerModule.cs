@@ -65,7 +65,7 @@ public class BookStoreAuthServerModule : AbpModule
         {
             builder.AddValidation(options =>
             {
-                options.AddAudiences("BookStore");
+                options.AddAudiences("BookStore", "BookStore.Admin");
                 options.UseLocalServer();
                 options.UseAspNetCore();
             });
@@ -82,6 +82,7 @@ public class BookStoreAuthServerModule : AbpModule
             {
                 serverBuilder.AddProductionEncryptionAndSigningCertificate("openiddict.pfx", configuration["AuthServer:CertificatePassPhrase"]!);
                 serverBuilder.SetIssuer(new Uri(configuration["AuthServer:Authority"]!));
+
             });
         }
     }
@@ -103,7 +104,7 @@ public class BookStoreAuthServerModule : AbpModule
             {
                 options.DisableTransportSecurityRequirement = true;
             });
-            
+
             Configure<ForwardedHeadersOptions>(options =>
             {
                 options.ForwardedHeaders = ForwardedHeaders.XForwardedProto;
@@ -114,7 +115,7 @@ public class BookStoreAuthServerModule : AbpModule
         ConfigureUrls(configuration);
         ConfigureBundles();
         ConfigureConventionalControllers();
-        
+
         //ConfigureHealthChecks(context);
         //ConfigureSwagger(context, configuration);
         ConfigureVirtualFileSystem(context);
@@ -129,7 +130,7 @@ public class BookStoreAuthServerModule : AbpModule
             options.IsDynamicClaimsEnabled = true;
         });
     }
-    
+
 
     private void ConfigureUrls(IConfiguration configuration)
     {

@@ -1,11 +1,24 @@
 import { authGuard, permissionGuard } from '@abp/ng.core';
 import { Routes } from '@angular/router';
+import { Dashboard } from './pages/dashboard/dashboard';
+import { Documentation } from './pages/documentation/documentation';
 
 export const APP_ROUTES: Routes = [
+  // {
+  //   path: '',
+  //   pathMatch: 'full',
+  //   loadComponent: () => import('./home/home.component').then(c => c.HomeComponent),
+  // },
   {
     path: '',
     pathMatch: 'full',
-    loadComponent: () => import('./home/home.component').then(c => c.HomeComponent),
+    loadComponent: () => import('./layout/component/app.layout').then(c => c.AppLayout),
+    children: [
+      { path: '', component: Dashboard },
+      { path: 'uikit', loadChildren: () => import('./pages/uikit/uikit.routes') },
+      { path: 'documentation', component: Documentation },
+      { path: 'pages', loadChildren: () => import('./pages/pages.routes') },
+    ],
   },
   {
     path: 'account',
