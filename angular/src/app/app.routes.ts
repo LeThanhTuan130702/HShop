@@ -20,6 +20,11 @@ export const APP_ROUTES: Routes = [
       { path: 'pages', loadChildren: () => import('./pages/pages.routes') },
     ],
   },
+
+  {
+    path: 'auth',
+    loadChildren: () => import('./pages/auth/auth.routes'),
+  },
   {
     path: 'account',
     loadChildren: () => import('@abp/ng.account').then(c => c.createRoutes()),
